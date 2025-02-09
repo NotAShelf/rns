@@ -1,2 +1,8 @@
 /target
 release*
+
+# Testing
+init.c
+init.lua
+librns.so
+init.so

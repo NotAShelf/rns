@@ -82,8 +82,8 @@ impl<'a> Lua<'a> {
     }
 }
 
-/// Refactored Lua binding for loading an external Lua configuration file
-/// Usage in Lua: nrs.load_config("path/to/config.lua")
+/// Lua binding for loading an external Lua configuration file
+/// Usage in Lua: rns.load_config("path/to/config.lua")
 extern "C" fn lua_load_config(L: *mut LuaState) -> c_int {
     // Isolate the unsafe FFI call to extract the string argument.
     let path = {
@@ -102,8 +102,8 @@ extern "C" fn lua_load_config(L: *mut LuaState) -> c_int {
     0
 }
 
-/// Refactored Lua binding for setting an option
-/// Usage in Lua: nrs.opt("option_name", "old_value", "new_value")
+/// Lua binding for setting an option
+/// Usage in Lua: rns.opt("option_name", "old_value", "new_value")
 extern "C" fn lua_opt(L: *mut LuaState) -> c_int {
     let (key, old_val, new_val) = unsafe {
         let mut len1 = 0;
@@ -135,8 +135,8 @@ extern "C" fn lua_opt(L: *mut LuaState) -> c_int {
     0
 }
 
-/// Refactored Lua binding for setting a key mapping
-/// Usage in Lua: nrs.map("n", "<leader>x", ":echo 'Hello'<CR>")
+/// Lua binding for setting a key mapping
+/// Usage in Lua: rns.map("n", "<leader>x", ":echo 'Hello'<CR>")
 extern "C" fn lua_map(L: *mut LuaState) -> c_int {
     let (mode, lhs, rhs) = unsafe {
         let mut len1 = 0;
@@ -161,7 +161,7 @@ extern "C" fn lua_map(L: *mut LuaState) -> c_int {
 }
 
 /// Refactored Lua binding for setting a global variable
-/// Usage in Lua: nrs.g("my_var", "value")
+/// Usage in Lua: rns.g("my_var", "value")
 extern "C" fn lua_g(L: *mut LuaState) -> c_int {
     let (key, val) = unsafe {
         let mut len1 = 0;
@@ -190,6 +190,7 @@ pub unsafe extern "C" fn luaopen_init(L: *mut LuaState) -> c_int {
     let lua = Lua::new(L);
     lua.create_table(0, 0);
 
+    // Register functions
     let load_config_name = CString::new("load_config").unwrap();
     lua.push_cclosure(lua_load_config, 0);
     lua.set_field(-2, &load_config_name);
@@ -206,8 +207,18 @@ pub unsafe extern "C" fn luaopen_init(L: *mut LuaState) -> c_int {
     lua.push_cclosure(lua_g, 0);
     lua.set_field(-2, &g_name);
 
-    // The module table is now on the Lua stack.
-    1
+    // Oh my fucking god lmao.
+    // You see, we need a safe wrapper for the unsafe code. This looks
+    // *hella* unsafe but the compiler is okay with it, and so am I.
+    extern "C" fn safe_luaopen_init(L: *mut LuaState) -> c_int {
+        unsafe { luaopen_init(L) }
+    }
+
+    let rns_name = CString::new("rns").unwrap();
+    lua.push_cclosure(safe_luaopen_init, 0);
+    lua.set_field(-2, &rns_name);
+
+    return 1; // Return 1 to indicate success
 }
 
 #[no_mangle]
