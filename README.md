@@ -1,4 +1,4 @@
-# NRS
+# RNS
 
 Something something write your Neovim configurations in C. Highly experimental,
 almost fully untested. If you look at this and go "wow what a great idea, I will
@@ -9,9 +9,15 @@ Inspired by [CatNvim](https://github.com/rewhile/CatNvim).
 
 ## Usage
 
+> [!WARNING]
+> The API might change, at any given time and without notice. This is not
+> intended for public use (or any use, really) and I will not make any attempts
+> to keep the library or its API stable.
+
 Build rns as a shared library:
 
 ```bash
+# This will create target/release/librns.so
 cargo build --release
 ```
 
@@ -19,90 +25,32 @@ Move it to your working directory, and you may begin interfacing with the
 resulting shared library in C.
 
 ```bash
-cp target/release/libinit.so ./init.so
+cp target/release/librns.so ./librns.so
 ```
 
-Use it in your `init.c`, for example, as follows:
-
-```c
-// init.c
-#include <lua.h>
-#include <lauxlib.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-
-// External Rust functions
-extern void run_cmd(const char *cmd);
-extern char *concat_str(const char *s1, const char *s2);
-extern bool os_isdir(const char *path);
-extern const char *get_xdg_home(int mode);
-extern void opt(const char *key, const char *old_val, const char *new_val);
-extern void require_setup(const char *module, const char *config);
-
-int luaopen_init(lua_State *L) {
-    // Get the path for lazy.nvim installation
-    char *lazypath = concat_str(get_xdg_home(1), "/lazy/lazy.nvim/");
-
-    // Clone lazy.nvim if it's not installed
-    if (!os_isdir(lazypath)) {
-        char *cmd = concat_str(
-            "git clone --filter=blob:none https://github.com/folke/lazy.nvim.git --branch=stable ",
-            lazypath
-        );
-        system(cmd);
-        free(cmd);
-    }
-
-    // Add lazy.nvim to runtimepath
-    opt("runtimepath", "DEFAULT_RUNTIMEPATH", lazypath);
-
-    // Load and configure LazyVim plugins
-    require_setup("lazy",
-        "{"
-        "  spec = {"
-        "    {"
-        "      'catppuccin/nvim',"
-        "      name = 'catppuccin',"
-        "      opts = {"
-        "        color_overrides = {"
-        "          mocha = {"
-        "            base = '#000000',"
-        "            mantle = '#000000',"
-        "            crust = '#000000'"
-        "          }"
-        "        }"
-        "      }"
-        "    },"
-        "    {"
-        "      'LazyVim/LazyVim',"
-        "      import = 'lazyvim.plugins',"
-        "      opts = { colorscheme = 'catppuccin' }"
-        "    }"
-        "  },"
-        "  install = {"
-        "    colorscheme = { 'catppuccin' }"
-        "  }"
-        "}"
-    );
-
-    return 1;
-}
-```
-
-Compile it:
+Write your configuration in C, and then compile it with `librns` in your library
+path. Note that you will also need `librns.so` in Neovim's `LD_LIBRARY_PATH`
+later on.
 
 ```bash
 # Replace target/release with where you have placed librns
-gcc -o init.so -shared -fPIC init.c -Ltarget/release -lnrs
+gcc -o init.so -shared -fPIC init.c -Ltarget/release -lrns -Wl,-rpath,./
 ```
 
 Now you can load your new, compiled configuration:
 
 ```lua
 -- init.lua
-package.cpath = package.cpath .. ";/path/to/init.so"
-require("init")
+package.cpath = package.cpath .. ";./?.so"
+local init = require("init")
 ```
 
-Enjoy!
+```bash
+# Ensure that librns.so is in Neovim's library path before
+# you run this. Otherwise your configuration will not be
+# loaded.
+nvim --clean -u path/to/your/init.lua
+```
+
+Now you may evaluate your life choices and consider how you even got here!
+Enjoy.

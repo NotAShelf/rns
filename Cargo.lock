@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "nrs"
+name = "rns"
 version = "0.1.0"
