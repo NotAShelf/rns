@@ -92,10 +92,22 @@ impl Lua<'_> {
     }
 
     /// Sets a field in the Lua table at the given stack index
-    pub fn set_field(&self, idx: c_int, k: &CStr) {
+    pub fn set_field(&self, idx: c_int, k: &str) -> bool {
+        let c_key = match CString::new(k) {
+            Ok(c_key) => c_key,
+            Err(_) => return false,
+        };
+
         unsafe {
-            lua_setfield(self.state, idx, k.as_ptr());
+            lua_setfield(self.state, idx, c_key.as_ptr());
         }
+
+        true
+    }
+
+    /// Gets a string argument from the Lua stack
+    pub fn check_string(&self, idx: c_int) -> Option<String> {
+        lua_check_string(self.state, idx)
     }
 }
 
@@ -203,38 +215,38 @@ extern "C" fn lua_g(L: *mut LuaState) -> c_int {
 /// Module initialization
 #[no_mangle]
 pub unsafe extern "C" fn luaopen_init(L: *mut LuaState) -> c_int {
-    // Constructing the wrapper is unsafe. After that, our methods *should* be safe?
-    // I think..?
     let lua = Lua::new(L);
     lua.create_table(0, 0);
 
     // Register functions
-    let load_config_name = CString::new("load_config").unwrap();
     lua.push_cclosure(lua_load_config, 0);
-    lua.set_field(-2, &load_config_name);
+    if !lua.set_field(-2, "load_config") {
+        return 0;
+    }
 
-    let opt_name = CString::new("opt").unwrap();
     lua.push_cclosure(lua_opt, 0);
-    lua.set_field(-2, &opt_name);
+    if !lua.set_field(-2, "opt") {
+        return 0;
+    }
 
-    let map_name = CString::new("map").unwrap();
     lua.push_cclosure(lua_map, 0);
-    lua.set_field(-2, &map_name);
+    if !lua.set_field(-2, "map") {
+        return 0;
+    }
 
-    let g_name = CString::new("g").unwrap();
     lua.push_cclosure(lua_g, 0);
-    lua.set_field(-2, &g_name);
+    if !lua.set_field(-2, "g") {
+        return 0;
+    }
 
-    // Oh my fucking god lmao.
-    // You see, we need a safe wrapper for the unsafe code. This looks
-    // *hella* unsafe but the compiler is okay with it, and so am I.
     extern "C" fn safe_luaopen_init(L: *mut LuaState) -> c_int {
         unsafe { luaopen_init(L) }
     }
 
-    let rns_name = CString::new("rns").unwrap();
     lua.push_cclosure(safe_luaopen_init, 0);
-    lua.set_field(-2, &rns_name);
+    if !lua.set_field(-2, "rns") {
+        return 0;
+    }
 
     1 // Return 1 to indicate success
 }
