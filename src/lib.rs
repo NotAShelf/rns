@@ -31,6 +31,19 @@ extern "C" {
     pub fn concat_str(s1: *const c_char, s2: *const c_char) -> *mut c_char;
 }
 
+/// Helper function to extract a string from Lua at the given stack index
+fn lua_check_string(L: *mut LuaState, idx: c_int) -> Option<String> {
+    unsafe {
+        let mut len: usize = 0;
+        let ptr = luaL_checklstring(L, idx, &mut len);
+        if ptr.is_null() {
+            None
+        } else {
+            Some(CStr::from_ptr(ptr).to_string_lossy().into_owned())
+        }
+    }
+}
+
 /// Run a command by converting the Rust &str to a C string
 fn run_cmd(cmd: &str) -> bool {
     let c_cmd = match CString::new(cmd) {
@@ -89,16 +102,10 @@ impl Lua<'_> {
 /// Lua binding for loading an external Lua configuration file
 /// Usage in Lua: `rns.load_config("path/to/config.lua`")
 extern "C" fn lua_load_config(L: *mut LuaState) -> c_int {
-    // Isolate the unsafe FFI call to extract the string argument.
-    let path = {
-        unsafe {
-            let mut len: usize = 0;
-            let ptr = luaL_checklstring(L, 1, &mut len);
-            if ptr.is_null() {
-                return 0;
-            }
-            CStr::from_ptr(ptr).to_string_lossy().into_owned()
-        }
+    // Extract path string
+    let path = match lua_check_string(L, 1) {
+        Some(path) => path,
+        None => return 0,
     };
 
     let cmd = format!("luafile {path}");
@@ -112,21 +119,20 @@ extern "C" fn lua_load_config(L: *mut LuaState) -> c_int {
 /// Lua binding for setting an option
 /// Usage in Lua: `rns.opt("option_name`", "`old_value`", "`new_value`")
 extern "C" fn lua_opt(L: *mut LuaState) -> c_int {
-    let (key, old_val, new_val) = unsafe {
-        let mut len1 = 0;
-        let mut len2 = 0;
-        let mut len3 = 0;
-        let key_ptr = luaL_checklstring(L, 1, &mut len1);
-        let old_ptr = luaL_checklstring(L, 2, &mut len2);
-        let new_ptr = luaL_checklstring(L, 3, &mut len3);
-        if key_ptr.is_null() || old_ptr.is_null() || new_ptr.is_null() {
-            return 0;
-        }
-        (
-            CStr::from_ptr(key_ptr).to_string_lossy().into_owned(),
-            CStr::from_ptr(old_ptr).to_string_lossy().into_owned(),
-            CStr::from_ptr(new_ptr).to_string_lossy().into_owned(),
-        )
+    // Extract string arguments
+    let key = match lua_check_string(L, 1) {
+        Some(s) => s,
+        None => return 0,
+    };
+
+    let old_val = match lua_check_string(L, 2) {
+        Some(s) => s,
+        None => return 0,
+    };
+
+    let new_val = match lua_check_string(L, 3) {
+        Some(s) => s,
+        None => return 0,
     };
 
     // Concatenate using the external API.
@@ -148,21 +154,20 @@ extern "C" fn lua_opt(L: *mut LuaState) -> c_int {
 /// Lua binding for setting a key mapping
 /// Usage in Lua: rns.map("n", "<leader>x", ":echo 'Hello'<CR>")
 extern "C" fn lua_map(L: *mut LuaState) -> c_int {
-    let (mode, lhs, rhs) = unsafe {
-        let mut len1 = 0;
-        let mut len2 = 0;
-        let mut len3 = 0;
-        let mode_ptr = luaL_checklstring(L, 1, &mut len1);
-        let lhs_ptr = luaL_checklstring(L, 2, &mut len2);
-        let rhs_ptr = luaL_checklstring(L, 3, &mut len3);
-        if mode_ptr.is_null() || lhs_ptr.is_null() || rhs_ptr.is_null() {
-            return 0;
-        }
-        (
-            CStr::from_ptr(mode_ptr).to_string_lossy().into_owned(),
-            CStr::from_ptr(lhs_ptr).to_string_lossy().into_owned(),
-            CStr::from_ptr(rhs_ptr).to_string_lossy().into_owned(),
-        )
+    // Extract string arguments
+    let mode = match lua_check_string(L, 1) {
+        Some(s) => s,
+        None => return 0,
+    };
+
+    let lhs = match lua_check_string(L, 2) {
+        Some(s) => s,
+        None => return 0,
+    };
+
+    let rhs = match lua_check_string(L, 3) {
+        Some(s) => s,
+        None => return 0,
     };
 
     let cmd = format!("{mode}map {lhs} {rhs}");
@@ -176,18 +181,15 @@ extern "C" fn lua_map(L: *mut LuaState) -> c_int {
 /// Refactored Lua binding for setting a global variable
 /// Usage in Lua: `rns.g("my_var`", "value")
 extern "C" fn lua_g(L: *mut LuaState) -> c_int {
-    let (key, val) = unsafe {
-        let mut len1 = 0;
-        let mut len2 = 0;
-        let key_ptr = luaL_checklstring(L, 1, &mut len1);
-        let val_ptr = luaL_checklstring(L, 2, &mut len2);
-        if key_ptr.is_null() || val_ptr.is_null() {
-            return 0;
-        }
-        (
-            CStr::from_ptr(key_ptr).to_string_lossy().into_owned(),
-            CStr::from_ptr(val_ptr).to_string_lossy().into_owned(),
-        )
+    // Extract string arguments
+    let key = match lua_check_string(L, 1) {
+        Some(s) => s,
+        None => return 0,
+    };
+
+    let val = match lua_check_string(L, 2) {
+        Some(s) => s,
+        None => return 0,
     };
 
     let cmd = format!("let g:{key} = {val}");
@@ -234,7 +236,7 @@ pub unsafe extern "C" fn luaopen_init(L: *mut LuaState) -> c_int {
     lua.push_cclosure(safe_luaopen_init, 0);
     lua.set_field(-2, &rns_name);
 
-    1// Return 1 to indicate success
+    1 // Return 1 to indicate success
 }
 
 #[no_mangle]
