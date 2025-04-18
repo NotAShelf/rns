@@ -1,9 +1,10 @@
 # RNS
 
-Something something write your Neovim configurations in C. Highly experimental,
-almost fully untested. If you look at this and go "wow what a great idea, I will
-start using this project right this instance!" I have unfortunate news for your
-friends and family and it involves you being sent to a mental hospital.
+Something something write your Neovim configurations in C something. _Highly_
+experimental, almost fully untested. If you look at this and go "wow what a
+great idea, I will start using this project right this instance!" I have
+unfortunate news for your friends and family and it involves you being sent to a
+mental hospital.
 
 Inspired by [CatNvim](https://github.com/rewhile/CatNvim).
 
@@ -54,3 +55,66 @@ nvim --clean -u path/to/your/init.lua
 
 Now you may evaluate your life choices and consider how you even got here!
 Enjoy.
+
+## Example Configuration
+
+:)
+
+```c
+#include <lauxlib.h>
+#include <lua.h>
+#include <lualib.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// Forward declarations for Rust functions
+extern int luaopen_init(lua_State *L);
+
+// Configuration function
+static int set_config(lua_State *L) {
+  // Set mapleader
+  luaL_dostring(L, "vim.g.mapleader = ' '");
+
+  // Set colorscheme
+  luaL_dostring(L, "vim.cmd('colorscheme blue')");
+
+  // Set other options
+  luaL_dostring(L, "vim.opt.number = true");
+  luaL_dostring(L, "vim.opt.relativenumber = true");
+  luaL_dostring(L, "vim.opt.expandtab = true");
+  luaL_dostring(L, "vim.opt.tabstop = 4");
+  luaL_dostring(L, "vim.opt.shiftwidth = 4");
+
+  return 0;
+}
+
+// Module initialization function
+__attribute__((visibility("default"))) int luaopen_config(lua_State *L) {
+  // Register the C module
+  luaL_Reg funcs[] = {{"set_config", set_config}, {NULL, NULL}};
+
+  luaL_newlib(L, funcs);
+  return 1;
+}
+```
+
+and load it in your `init.lua`:
+
+```lua
+-- Basic setup
+package.cpath = package.cpath .. ";./?.so"
+
+-- Load the config module
+local config = require("config")
+
+-- Set configuration
+config.set_config()
+
+-- Print debug info
+print("Configuration process completed")
+```
+
+## Why?
+
+Teehee.
