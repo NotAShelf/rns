@@ -32,12 +32,16 @@ extern "C" {
 }
 
 /// Run a command by converting the Rust &str to a C string
-fn run_cmd(cmd: &str) {
-    let c_cmd = CString::new(cmd).unwrap();
+fn run_cmd(cmd: &str) -> bool {
+    let c_cmd = match CString::new(cmd) {
+        Ok(c_cmd) => c_cmd,
+        Err(_) => return false,
+    };
+
     // Only this FFI call is unsafe.
-    unsafe {
-        do_cmdline_cmd(c_cmd.as_ptr());
-    }
+    let result = unsafe { do_cmdline_cmd(c_cmd.as_ptr()) };
+
+    result == 0
 }
 
 /// A safe wrapper around a Lua state pointer
@@ -51,7 +55,7 @@ pub struct Lua<'a> {
     _marker: PhantomData<&'a LuaState>,
 }
 
-impl<'a> Lua<'a> {
+impl Lua<'_> {
     pub unsafe fn new(state: *mut LuaState) -> Self {
         assert!(!state.is_null());
         Lua {
@@ -83,7 +87,7 @@ impl<'a> Lua<'a> {
 }
 
 /// Lua binding for loading an external Lua configuration file
-/// Usage in Lua: rns.load_config("path/to/config.lua")
+/// Usage in Lua: `rns.load_config("path/to/config.lua`")
 extern "C" fn lua_load_config(L: *mut LuaState) -> c_int {
     // Isolate the unsafe FFI call to extract the string argument.
     let path = {
@@ -97,13 +101,16 @@ extern "C" fn lua_load_config(L: *mut LuaState) -> c_int {
         }
     };
 
-    let cmd = format!("luafile {}", path);
-    run_cmd(&cmd);
-    0
+    let cmd = format!("luafile {path}");
+    if run_cmd(&cmd) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Lua binding for setting an option
-/// Usage in Lua: rns.opt("option_name", "old_value", "new_value")
+/// Usage in Lua: `rns.opt("option_name`", "`old_value`", "`new_value`")
 extern "C" fn lua_opt(L: *mut LuaState) -> c_int {
     let (key, old_val, new_val) = unsafe {
         let mut len1 = 0;
@@ -130,9 +137,12 @@ extern "C" fn lua_opt(L: *mut LuaState) -> c_int {
         CStr::from_ptr(result).to_string_lossy().into_owned()
     };
 
-    let cmd = format!("set {}={}", key, combined);
-    run_cmd(&cmd);
-    0
+    let cmd = format!("set {key}={combined}");
+    if run_cmd(&cmd) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Lua binding for setting a key mapping
@@ -155,13 +165,16 @@ extern "C" fn lua_map(L: *mut LuaState) -> c_int {
         )
     };
 
-    let cmd = format!("{}map {} {}", mode, lhs, rhs);
-    run_cmd(&cmd);
-    0
+    let cmd = format!("{mode}map {lhs} {rhs}");
+    if run_cmd(&cmd) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Refactored Lua binding for setting a global variable
-/// Usage in Lua: rns.g("my_var", "value")
+/// Usage in Lua: `rns.g("my_var`", "value")
 extern "C" fn lua_g(L: *mut LuaState) -> c_int {
     let (key, val) = unsafe {
         let mut len1 = 0;
@@ -177,9 +190,12 @@ extern "C" fn lua_g(L: *mut LuaState) -> c_int {
         )
     };
 
-    let cmd = format!("let g:{} = {}", key, val);
-    run_cmd(&cmd);
-    0
+    let cmd = format!("let g:{key} = {val}");
+    if run_cmd(&cmd) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Module initialization
@@ -218,7 +234,7 @@ pub unsafe extern "C" fn luaopen_init(L: *mut LuaState) -> c_int {
     lua.push_cclosure(safe_luaopen_init, 0);
     lua.set_field(-2, &rns_name);
 
-    return 1; // Return 1 to indicate success
+    1// Return 1 to indicate success
 }
 
 #[no_mangle]
@@ -242,11 +258,11 @@ pub extern "C" fn opt(key: *const c_char, old_val: *const c_char, new_val: *cons
         };
 
         let comma = CString::new(",").unwrap();
-        let temp = concat_str(old.as_ptr() as *const c_char, comma.as_ptr());
-        let combined = concat_str(temp, new.as_ptr() as *const c_char);
+        let temp = concat_str(old.as_ptr().cast::<c_char>(), comma.as_ptr());
+        let combined = concat_str(temp, new.as_ptr().cast::<c_char>());
         let combined_str = CStr::from_ptr(combined).to_string_lossy();
-        let cmd = format!("set {}={}", key, combined_str);
-        run_cmd(&cmd);
+        let cmd = format!("set {key}={combined_str}");
+        let _ = run_cmd(&cmd);
     }
 }
 
@@ -258,7 +274,7 @@ pub extern "C" fn require_setup(module: *const c_char, config: *const c_char) {
         }
         let module_str = CStr::from_ptr(module).to_string_lossy();
         let config_str = CStr::from_ptr(config).to_string_lossy();
-        let cmd = format!("require_setup {} {}", module_str, config_str);
-        run_cmd(&cmd);
+        let cmd = format!("require_setup {module_str} {config_str}");
+        let _ = run_cmd(&cmd);
     }
 }
