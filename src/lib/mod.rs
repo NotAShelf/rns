@@ -13,6 +13,14 @@ mod pman;
 use interop::register_nvim_interop_functions;
 use pman::register_plugin_functions;
 
+// Platform-specific definitions
+#[cfg(target_os = "macos")]
+pub const LIB_EXTENSION: &str = "dylib";
+#[cfg(target_os = "linux")]
+pub const LIB_EXTENSION: &str = "so";
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+pub const LIB_EXTENSION: &str = "so"; // Default to .so for other platforms
+
 /// Opaque representation of Lua state
 #[repr(C)]
 pub struct LuaState {
@@ -41,9 +49,23 @@ extern "C" {
 }
 
 // FFI bindings to the external Neovim API
+#[cfg(not(target_os = "macos"))]
 extern "C" {
     pub fn do_cmdline_cmd(cmd: *const c_char) -> c_int;
     pub fn concat_str(s1: *const c_char, s2: *const c_char) -> *mut c_char;
+    pub fn xfree(ptr: *mut CVoid);
+}
+
+// FFI bindings to the external Neovim API for macOS
+#[cfg(target_os = "macos")]
+extern "C" {
+    #[link_name = "do_cmdline_cmd"]
+    pub fn do_cmdline_cmd(cmd: *const c_char) -> c_int;
+
+    #[link_name = "concat_str"]
+    pub fn concat_str(s1: *const c_char, s2: *const c_char) -> *mut c_char;
+
+    #[link_name = "xfree"]
     pub fn xfree(ptr: *mut CVoid);
 }
 
@@ -84,6 +106,13 @@ impl Drop for NeovimString {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
             unsafe {
+                #[cfg(target_os = "macos")]
+                {
+                    // On macOS, ensure we're using the correct xfree
+                    xfree(self.ptr.cast::<CVoid>());
+                }
+
+                #[cfg(not(target_os = "macos"))]
                 xfree(self.ptr.cast::<CVoid>());
             }
             self.ptr = std::ptr::null_mut();
