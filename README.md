@@ -1,21 +1,34 @@
 # RNS
 
-Something something write your Neovim configurations in C something. _Highly_
+A library for writing Neovim configurations in systems programming languages (C,
+Zig, or Rust). RNS provides a consistent C-compatible FFI layer that lets you
+craft your Neovim setup using compiled languages instead of Lua. _Highly_
 experimental, almost fully untested. If you look at this and go "wow what a
 great idea, I will start using this project right this instance!" I have
 unfortunate news for your friends and family and it involves you being sent to a
 mental hospital.
 
-Inspired by [CatNvim](https://github.com/rewhile/CatNvim).
+Greatly inspired by the awesome [CatNvim](https://github.com/rewhile/CatNvim),
+redesigned as a more generic and extensible
+
+## Features
+
+- Write Neovim configurations in C, Zig, or Rust
+- Plugin management API (register, install, update)
+- Structured plugin configuration system
+- LSP server configuration helpers
+- Keymapping creation with a clean API
+- Autocommand and autogroup management
+- Option setting with appropriate type enforcement
 
 ## Usage
 
 > [!WARNING]
-> The API might change, at any given time and without notice. This is not
+> The API might change at any given time and without _any_ notice. This is not
 > intended for public use (or any use, really) and I will not make any attempts
 > to keep the library or its API stable.
 
-Build rns as a shared library:
+Build RNS as a shared library:
 
 ```bash
 # This will create target/release/librns.so
