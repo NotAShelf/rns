@@ -17,8 +17,6 @@ jobs:
     - uses: cachix/install-nix-action@v31
       with:
         github_access_token: ${{ secrets.GITHUB_TOKEN }}
-    - run: nix develop
-    - name: Build
-      run: cargo build --verbose
 
-
+    - name: Build with Cargo
+      run: nix develop --command "cargo build --verbose"
