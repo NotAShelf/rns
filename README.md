@@ -1,12 +1,12 @@
 # RNS
 
-A library for writing Neovim configurations in systems programming languages (C,
-Zig, or Rust). RNS provides a consistent C-compatible FFI layer that lets you
-craft your Neovim setup using compiled languages instead of Lua. _Highly_
-experimental, almost fully untested. If you look at this and go "wow what a
-great idea, I will start using this project right this instance!" I have
-unfortunate news for your friends and family and it involves you being sent to a
-mental hospital.
+A library for writing Neovim configurations in systems programming languages
+([C](#c), [Zig](#zig), or with Rust). RNS provides a consistent C-compatible FFI
+layer that lets you craft your Neovim setup using compiled languages instead of
+Lua. _Highly_ experimental, almost fully untested. If you look at this and go
+"_wow what a great idea, I will start using this project right this instance!_"
+I have unfortunate news for your friends and family and it involves you being
+sent to a mental hospital.
 
 Greatly inspired by the awesome [CatNvim](https://github.com/rewhile/CatNvim),
 redesigned as a more generic and extensible
