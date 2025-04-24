@@ -55,13 +55,26 @@
         packages = with pkgs; [
           cargo
           clippy
+          (rustfmt.override {asNightly = true;})
 
           # Required to build RNS
           luajit
 
-          rust-analyzer-unwrapped
-          (rustfmt.override {asNightly = true;})
+          # Zig
+          zig
+
+          # Assembly
+          nasm
+
+          # Perl
+          perl
+          perl540Packages.FFIPlatypus
+          libxcrypt
         ];
+
+        shellHook = ''
+          export LD_LIBRARY_PATH=$PWD:$LD_LIBRARY_PATH
+        '';
       };
     });
 
