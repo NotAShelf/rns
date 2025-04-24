@@ -317,6 +317,85 @@ config() -- Initialize the config
 -- rns.register_plugin("telescope", "https://github.com/nvim-telescope/telescope.nvim")
 ```
 
+### Assembly
+
+Are you thinking to yourself "_what the fuck?_" right now? I am.
+
+```asm
+; config.asm
+section .data
+    mapleader db " ", 0
+    lua_cmd db "vim.g.mapleader = ' '", 0
+    number_cmd db "vim.opt.number = true", 0
+    expandtab_cmd db "vim.opt.expandtab = true", 0
+    colorscheme_cmd db "vim.cmd('colorscheme habamax')", 0
+
+section .note.GNU-stack
+
+section .text
+    global configure:function
+    global luaopen_config:function
+    extern exec_lua
+
+configure:
+    push rbp
+    mov rbp, rsp
+
+    ; Use exec_lua to run Lua commands instead of direct C functions
+    lea rdi, [rel lua_cmd]
+    call exec_lua wrt ..plt
+
+    lea rdi, [rel number_cmd]
+    call exec_lua wrt ..plt
+
+    lea rdi, [rel expandtab_cmd]
+    call exec_lua wrt ..plt
+
+    lea rdi, [rel colorscheme_cmd]
+    call exec_lua wrt ..plt
+
+    xor eax, eax
+    pop rbp
+    ret
+
+luaopen_config:
+    push rbp
+    mov rbp, rsp
+    call configure
+    mov eax, 1
+    pop rbp
+    ret
+```
+
+Compile your configuration
+
+```bash
+nasm -f elf64 -o config.o config.asm  # For x86_64 Linux
+```
+
+and ccompile with embedded library path
+
+```bash
+gcc -shared -o config.so config.o -L. -lrns -Wl,-rpath,'$ORIGIN'
+```
+
+```lua
+-- init.lua
+-- Configure library paths
+package.cpath = package.cpath .. ";./?.so"
+
+-- Use FFI to preload librns.so
+local ffi = require("ffi")
+ffi.cdef[[void *dlopen(const char *filename, int flag);]]
+local lib = ffi.C.dlopen("./librns.so", 2) -- RTLD_NOW = 2
+
+-- Load our assembly config
+local status, config = pcall(require, "config")
+if not status then
+  error("Failed to load config: " .. tostring(config))
+end
+```
+
 ## Why?
 
 Teehee.
